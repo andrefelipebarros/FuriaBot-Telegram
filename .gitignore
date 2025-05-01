@@ -1,0 +1,54 @@
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribuição
+build/
+dist/
+*.egg-info/
+
+# Ambientes virtuais
+venv/
+env/
+ENV/
+.venv/
+.python-version
+
+# Configurações do editor
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Arquivos de teste/coverage
+.coverage
+.tox/
+.nox/
+pytest_cache/
+htmlcov/
+coverage.xml
+
+# Dependências baixadas por gerenciadores
+pip-wheel-metadata/
+pip-log.txt
+
+# Configurações pessoais
+*.env
+*.env.*
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Mypy
+.mypy_cache/
+
+# Pyright
+.pyright/
