@@ -107,7 +107,7 @@ def get_furia_score(url: str) -> Optional[str]:
 
 
 def get_furia_scoreboard(url: str, max_players: int = 5) -> Dict[str, Dict[str, str]]:
-    resp = requests.get(url, timeout=3)
+    resp = requests.get(url, timeout=10)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, 'html.parser')
 
