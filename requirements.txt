@@ -4,6 +4,7 @@ python-dotenv==1.1.0
 pydantic==2.11.3
 requests==2.32.3
 beautifulsoup4==4.13.4
+playwright>=1.30.0
 setuptools==79.0.1
 python-dotenv
 python-telegram-bot
