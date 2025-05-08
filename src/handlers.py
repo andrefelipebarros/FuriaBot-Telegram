@@ -5,6 +5,8 @@ import httpx
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ChatAction
 from telegram.ext import ContextTypes
+from telegram.error import BadRequest
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from markups import (
     main_menu_markup,
@@ -14,7 +16,7 @@ from markups import (
     socials_male_menu_markup
 )
 from services.last_scoreboard import build_bo3_url, get_furia_scoreboard
-from services.pandascore import fetch_next_match
+from services.next_match import fetch_upcoming_matches
 from services.result_matcher import get_latest_match_info
 from services.roster_service import get_current_roster
 
@@ -161,7 +163,6 @@ async def round_nav_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
 
 
-
 # --- User Poll for Favorite Player ---
 async def send_cheer_poll(
     chat_id: int,
@@ -221,6 +222,8 @@ async def button_handler(
     data = query.data
     female = context.user_data.get("female", False)
     team_slug = "FURIA_Female" if female else TEAM_SLUG
+    # Draft5 slug
+    draft_slug = "1200-FURIA-fem" if female else "330-FURIA"
 
     # Social menus
     if data in ("menu_socials", "socials_female", "socials_male"):
@@ -237,27 +240,56 @@ async def button_handler(
             parse_mode="Markdown"
         )
 
-    # Next match info
+    # Next match
     if data == "next_match":
+        # retry twice on timeout
+        upcoming = []
+        for _ in range(2):
+            try:
+                upcoming = await fetch_upcoming_matches(draft_slug)
+                break
+            except PlaywrightTimeoutError:
+                continue
+            except Exception:
+                try:
+                    return await query.edit_message_text(
+                        "❌ Erro ao buscar próximas partidas.",
+                        reply_markup=main_menu_markup(female)
+                    )
+                except BadRequest:
+                    return
+
+        if not upcoming:
+            try:
+                return await query.edit_message_text(
+                    "ℹ️ Ainda não há próximas partidas agendadas para essa line.",
+                    reply_markup=main_menu_markup(female)
+                )
+            except BadRequest:
+                return
+
+        lines = [f"🔥 Próximas partidas - {'FEMININA' if female else 'MASCULINA'}"]
+        for m in upcoming[:5]:
+            opp = m['team2'] if m['team1'] == draft_slug else m['team1']
+            lines.append(
+            f"📅 {m['date']} às {m['time']} — {draft_slug} vs {opp} ({m['best_of']})\n"
+            f"🏆 {m['tournament']}"
+        )
+        lines.append(f"🔗 Onde ver:\n https://draft5.gg/equipe/{draft_slug}/proximas-partidas")
+    
+        text = "\n\n".join(lines)
+
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔄 Atualizar", callback_data="next_match")],
+            [InlineKeyboardButton("🔙 Voltar", callback_data="menu_main")]
+        ])
         try:
-            info = await fetch_next_match()
-        except Exception:
             return await query.edit_message_text(
-                "❌ Erro ao buscar próxima partida.",
-                reply_markup=main_menu_markup(female)
+                text=text,
+                reply_markup=keyboard
             )
-
-        if info:
-            dt = info["date"].replace("T", " ").replace("Z", "")
-            text = (
-                f"🔥 Próxima: {team_slug} vs {info['opponent']}\n"
-                f"Quando: {dt}\n"
-                f"Liga: {info['league']}"
-            )
-        else:
-            text = "Nenhuma partida encontrada."
-
-        return await query.edit_message_text(text, reply_markup=main_menu_markup(female))
+        except BadRequest:
+            return
 
     # Last result
     if data == "last_result":
@@ -347,7 +379,9 @@ async def button_handler(
             "🔥 Bem-vindo fã da FURIA! 💥 Escolha uma opção:",
             reply_markup=main_menu_markup(female)
         )
-
+    
+    # TODO: Insert URL https://bo3.gg
+    
     # Unknown callback
     await query.edit_message_text(
         "❓ Opção inválida.",
